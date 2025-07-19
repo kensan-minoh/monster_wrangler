@@ -49,12 +49,18 @@ class Knight(pygame.sprite.Sprite):
             for sprite in collided_sprites:
                 if sprite.color == target_monster_group.sprite.color:
                     my_game.hit_sound.play()
-
+                    my_game.score += 1
                     monster_group.remove(sprite)
                     if len(monster_group) == 0:
                         my_game.play_again_message()
                     else:   
                         my_game.making_target_monster()
+                else:
+                    my_game.missed_sound.play()
+                    my_game.lives += -1
+                    self.rect = self.image.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT-50))
+
+
 
             
     
@@ -62,7 +68,10 @@ class Knight(pygame.sprite.Sprite):
 class Game():
     def __init__(self):
         self.hit_sound = pygame.mixer.Sound('hit_sound.wav')
+        self.missed_sound = pygame.mixer.Sound('missed_sound.wav')
+
         self.score = 0
+        self.lives = 5
     def update(self):
         self.make_hud()
 
@@ -107,7 +116,7 @@ class Game():
     def new_round(self):
         self.score = 0
         self.lives = STARTING_LIVES
-        
+
 
     def making_monster(self, round):
         for j in range(round):
@@ -130,10 +139,10 @@ class Game():
         Knight(knight_group)
 
     def make_hud(self):
-        score_text = my_font.render(f'SCORE: {score}',True, 'white')
+        score_text = my_font.render(f'SCORE: {self.score}',True, 'white')
         score_rect = score_text.get_rect(topleft =(5, 5))
         display_surface.blit(score_text, score_rect)
-        lives_text = my_font.render(f'LIVES: {lives}',True, 'white')
+        lives_text = my_font.render(f'LIVES: {self.lives}',True, 'white')
         lives_rect = lives_text.get_rect(topleft =(5, 35))
         display_surface.blit(lives_text, lives_rect)
         current_round_text = my_font.render(f'CURRENT ROUND: {round}', True, 'white')
