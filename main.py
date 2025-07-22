@@ -27,9 +27,7 @@ class Knight(pygame.sprite.Sprite):
         self.velocity = 5
 
     def update(self):
-        self.move()
-        self.check_collisions()
-        
+        self.move()    
 
     def move(self):
         keys = pygame.key.get_pressed()
@@ -42,38 +40,29 @@ class Knight(pygame.sprite.Sprite):
         if keys[pygame.K_RIGHT] and self.rect.right < WINDOW_WIDTH:
             self.rect.x += self.velocity 
 
-    def check_collisions(self):
-        collided_sprites = pygame.sprite.spritecollide(self, monster_group, False)
-        if collided_sprites:
-            
-            for sprite in collided_sprites:
-                if sprite.color == target_monster_group.sprite.color:
-                    my_game.hit_sound.play()
-                    my_game.score += 1
-                    monster_group.remove(sprite)
-                    if len(monster_group) == 0:
-                        my_game.play_again_message()
-                    else:   
-                        my_game.making_target_monster()
-                else:
-                    my_game.missed_sound.play()
-                    my_game.lives += -1
-                    self.rect = self.image.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT-50))
-
-
-
-            
-    
+    def warp(self):
+        if my_game.warps > 0:
+            my_game.warp_sound.play()
+            my_game.warps += -1
+            self.rect.center = (WINDOW_WIDTH//2, WINDOW_HEIGHT-50)
 
 class Game():
     def __init__(self):
         self.hit_sound = pygame.mixer.Sound('hit_sound.wav')
         self.missed_sound = pygame.mixer.Sound('missed_sound.wav')
-
+        self.warp_sound = pygame.mixer.Sound('warp_sound.wav')
+        self.starting_game_sound = pygame.mixer.Sound('starting_game_sound.wav')
+        self.starting_game_sound.set_volume(0.2)
+        # game valuables
         self.score = 0
         self.lives = 5
+        self.round = 1
+        self.warps = 3
+        self.start_time = 0
+
     def update(self):
         self.make_hud()
+        self.check_collisions()
 
     def start_messege(self):
         title_text = my_font.render("MONSTER WRANGLER",True, (255, 255, 255))
@@ -96,12 +85,12 @@ class Game():
                     is_waiting = False
 
     def play_again_message(self):
-        final_score_text = my_font.render(f'FINAL SCORE: {score}', True, 'red')
-        # final_score_text = pygame.transform.scale(final_score_text, (128, 128))
+        final_score_text = my_font.render(f'FINAL SCORE: {self.score}', True, 'red')
         final_score_rect = final_score_text.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2))
-        display_surface.blit(final_score_text, final_score_rect)
         start_text = my_font.render("Press 'Enter' To Play Again", True, 'white')
         start_rect = start_text.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 40))
+        display_surface.fill('black')
+        display_surface.blit(final_score_text, final_score_rect)
         display_surface.blit(start_text, start_rect)
         pygame.display.update()
 
@@ -113,10 +102,25 @@ class Game():
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
                     is_waiting = False
 
-    def new_round(self):
-        self.score = 0
-        self.lives = STARTING_LIVES
+    def new_round_game(self):
+        self.round += 1
+        self.making_monster(self.round)
+        self.making_target_monster()
+        self.making_knight()
+        self.starting_game_sound.play(loops=0)
+        self.start_time = pygame.time.get_ticks()
 
+    def new_game_start(self):
+        self.score = 0
+        self.lives = 5
+        self.round = 1
+        self.warps = 3
+        monster_group.empty()
+        self.making_monster(self.round)
+        self.making_target_monster()
+        self.making_knight()
+        self.starting_game_sound.play(loops=0)
+        self.start_time = pygame.time.get_ticks()
 
     def making_monster(self, round):
         for j in range(round):
@@ -134,7 +138,7 @@ class Game():
         x = WINDOW_WIDTH // 2 -32
         y = 30
         target_monster = Monster(x, y, color, target_monster_group)
-        print(target_monster)
+
     def making_knight(self):
         Knight(knight_group)
 
@@ -145,20 +149,40 @@ class Game():
         lives_text = my_font.render(f'LIVES: {self.lives}',True, 'white')
         lives_rect = lives_text.get_rect(topleft =(5, 35))
         display_surface.blit(lives_text, lives_rect)
-        current_round_text = my_font.render(f'CURRENT ROUND: {round}', True, 'white')
+        current_round_text = my_font.render(f'CURRENT ROUND: {self.round}', True, 'white')
         current_round_rect = current_round_text.get_rect(topleft = (5, 65))
         display_surface.blit(current_round_text, current_round_rect)
         current_catch_text = my_font.render('CURRENT CATCH', True, 'white')
         current_catch_rect = current_catch_text.get_rect(midtop=(WINDOW_WIDTH//2, 5))
         display_surface.blit(current_catch_text, current_catch_rect)
-        round_time_text = my_font.render(f'ROUND TIME: {round_time}', True, 'white')
+        round_time_text = my_font.render(f'ROUND TIME: {int((pygame.time.get_ticks()-self.start_time)/1000)}', True, 'white')
         round_time_rect = round_time_text.get_rect(topright=(WINDOW_WIDTH-5, 5))
         display_surface.blit(round_time_text, round_time_rect)
-        warps_text = my_font.render(f'WARPS: {warps}', True, 'white')
+        warps_text = my_font.render(f'WARPS: {self.warps}', True, 'white')
         warps_rect = warps_text.get_rect(topright=(WINDOW_WIDTH-5, 35))
         display_surface.blit(warps_text, warps_rect)
 
-
+    def check_collisions(self):
+        collided_sprites = pygame.sprite.spritecollide(knight_group.sprite, monster_group, False)
+        if collided_sprites:
+            
+            for sprite in collided_sprites:
+                if sprite.color == target_monster_group.sprite.color:
+                    self.hit_sound.play()
+                    self.score += 1
+                    monster_group.remove(sprite)
+                    if len(monster_group) == 0:
+                        self.new_round_game()
+                    else:   
+                        self.making_target_monster()
+                else:
+                    self.missed_sound.play()
+                    self.lives += -1
+                    if self.lives == 0:
+                        self.play_again_message()
+                        self.new_game_start()
+                    else:
+                        knight_group.sprite.rect = knight_group.sprite.image.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT-50))
 
 # initialize pygame
 pygame.init()
@@ -180,35 +204,17 @@ pygame.display.set_caption('Monster Wrangler')
 
 my_font = pygame.font.Font("game_font.ttf", 24)
 
-# game variables
-round = 2
-STARTING_SCORE = 0
-score = STARTING_SCORE
-STARTING_LIVES = 5
-lives = STARTING_LIVES
-STARTING_ROUND = 1
-round = STARTING_ROUND
-STARTING_ROUND_TIME = 0
-round_time = STARTING_ROUND_TIME
-STARTING_WARPS = 3
-warps = STARTING_WARPS
-
-# 
-
 # set FPS and clock
 FPS = 60
 clock = pygame.time.Clock()
 
 my_game = Game()
-my_game.start_messege()
-
 monster_group = pygame.sprite.Group()
 target_monster_group =pygame.sprite.GroupSingle()
-knight_group = pygame.sprite.Group()
-my_game.making_monster(round)
-my_game.making_target_monster()
-my_game.making_knight()
+knight_group = pygame.sprite.GroupSingle()
 
+my_game.start_messege()
+my_game.new_game_start()
 
 # main game loop
 running = True
@@ -217,6 +223,8 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            knight_group.sprite.warp()
 
     # fill the background
     display_surface.fill((0, 0, 0))
@@ -225,15 +233,16 @@ while running:
     pygame.draw.rect(display_surface, target_monster_group.sprite.color, 
                      (0, GAME_WINDOW_UP, WINDOW_WIDTH, GAME_WINDOW_BOTTOM-GAME_WINDOW_UP), width=2)
 
-    # draw assets
+    # update and draw assets
     my_game.update()
     monster_group.update()
+    knight_group.update()
+
     monster_group.draw(display_surface)
+    knight_group.draw(display_surface)
 
     target_monster_group.draw(display_surface)
     pygame.draw.rect(display_surface, target_monster_group.sprite.color, target_monster_group.sprite.rect, width=1)
-    knight_group.update()
-    knight_group.draw(display_surface)
 
     # update the display
     pygame.display.update()
